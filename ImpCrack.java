@@ -15,8 +15,11 @@ public class ImpCrack extends UnicastRemoteObject implements CrackPass {
 
     @Override
     public void crackPassword(String targetHash, int numThreads, int passwordLength, int startIndex, int endIndex, int serverIndex) throws RemoteException {
+        System.out.println("Server " + (serverIndex + 1) + " initiated password search of length " + passwordLength + " for range " + startIndex + " to " + endIndex);
+        
         ExecutorService executor = Executors.newFixedThreadPool(numThreads);
         String[] result = {null};
+        long serverStartTime = System.currentTimeMillis();
 
         for (int i = 0; i < numThreads; i++) {
             final int start = startIndex + (i * (endIndex - startIndex) / numThreads);
@@ -27,10 +30,17 @@ public class ImpCrack extends UnicastRemoteObject implements CrackPass {
                     if (getMd5(password).equals(targetHash) && !passwordFound.get()) {
                         passwordFound.set(true);
                         result[0] = password;
+
+                        long threadId = Thread.currentThread().threadId();
+                        long serverEndTime = System.currentTimeMillis();
+                        double timeTaken = (serverEndTime - serverStartTime) / 1000.0;
+
                         // Send result to client
                         System.out.println("\nPassword Cracked by Server " + (serverIndex + 1) + ":");
                         System.out.println("--------------------------------");
+                        System.out.println("Thread ID: " + threadId);
                         System.out.println("Password: " + password);
+                        System.out.println("Time taken: " + timeTaken + " seconds");
                         System.out.println("--------------------------------");
                         break;
                     }
