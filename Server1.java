@@ -12,7 +12,7 @@ public class Server1 {
             Registry registry = LocateRegistry.createRegistry(1099);
             registry.rebind("CrackPass", impCrack);
 
-            System.out.println("Server 1 running at 192.168.123.10, waiting for clients...");
+            System.out.println("Server 1 is now running on 192.168.123.10 (port 1099), awaiting client connections...");
         } catch (RemoteException e) {
             e.printStackTrace();
         }
