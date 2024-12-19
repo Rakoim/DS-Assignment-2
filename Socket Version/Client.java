@@ -10,6 +10,7 @@ public class Client {
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
 
+    try {
         // Get MD5 hash input
         System.out.print("Enter MD5 hash to crack: ");
         String targetHash = scanner.nextLine().trim();
@@ -95,6 +96,9 @@ public class Client {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+    } finally {
+        scanner.close();
+    }
     }
 
     private static void notifyOtherServers(String[] serverAddresses, int foundServerIndex, int serverPort) {

@@ -12,6 +12,7 @@ public class Client {
         int numServers = 0;
         String[] serverAddresses = {"192.168.123.10", "192.168.123.11"}; // Replace with your servers' IPs
 
+    try{
         // Get MD5 hash input and validate
         while (true) {
             System.out.print("Enter MD5 hash to crack: ");
@@ -24,6 +25,9 @@ public class Client {
                 System.out.println("Invalid MD5 hash. Please enter a valid 32-character MD5 hash.");
             }
         }
+    } finally {
+        scanner.close();
+    }
 
         // Get number of threads per server and validate
         while (true) {
