@@ -93,10 +93,17 @@ public class ImpCrack extends UnicastRemoteObject implements CrackPass {
     @Override
     public void stopCracking() throws RemoteException {
         passwordFound.set(true); // Mark as found
+        // Check if the current server needs to stop because another server found the password
+        if (!thisServerFoundPassword) {
+            LoggerUtil.logEvent("Password found by another server. Stopping the search.");
+        }
+    
+        // Mark the current server to stop
         if (executor != null && !executor.isShutdown()) {
             executor.shutdownNow(); // Shut down the executor immediately
         }
     }
+    
 
     @Override
     public boolean isPasswordFound() throws RemoteException {

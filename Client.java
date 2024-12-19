@@ -2,6 +2,9 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.util.InputMismatchException;
 import java.util.Scanner;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class Client {
     public static void main(String[] args) {
@@ -83,23 +86,53 @@ public class Client {
             // Calculate the range each server will handle
             int rangePerServer = numCombinations / numServers;
 
+            // Make variables effectively final for use in lambda
+            final String finalTargetHash = targetHash;
+            final int finalNumThreads = numThreads;
+            final int finalPasswordLength = passwordLength;
+
             try {
-                // Connect to the servers and distribute tasks
-                boolean passwordFound = false;
+                // Executor to handle parallel server connections
+                ExecutorService executorService = Executors.newFixedThreadPool(numServers);
+                CountDownLatch latch = new CountDownLatch(numServers); // Used to wait for all servers to be connected
+
+                // Connect to the servers in parallel
                 for (int i = 0; i < numServers; i++) {
-                    int startIndex = i * rangePerServer;
-                    int endIndex = (i == numServers - 1) ? numCombinations - 1 : (startIndex + rangePerServer - 1);
-
-                    // Connect to server using RMI
-                    Registry registry = LocateRegistry.getRegistry(serverAddresses[i], 1099);
-                    CrackPass server = (CrackPass) registry.lookup("CrackPass");
-
-                    // Start password cracking task
-                    server.crackPassword(targetHash, numThreads, passwordLength, startIndex, endIndex, i);
-                    LoggerUtil.logEvent("Initiated password cracking task on Server " + (i + 1) + ".");
+                    final int serverIndex = i;  // Make serverIndex final
+                    final int startIndex = serverIndex * rangePerServer; // Calculate startIndex outside the lambda
+                    final int endIndex = (serverIndex == numServers - 1) ? numCombinations - 1 : (startIndex + rangePerServer - 1); // Calculate endIndex outside the lambda
+                
+                    executorService.submit(() -> {
+                        try {
+                            // Connect to server using RMI
+                            Registry registry = LocateRegistry.getRegistry(serverAddresses[serverIndex], 1099);
+                            CrackPass server = (CrackPass) registry.lookup("CrackPass");
+                
+                            LoggerUtil.logEvent("Server " + (serverIndex + 1) + " connected.");
+                            latch.countDown(); // Signal that this server is connected
+                
+                            // Wait until all servers are connected before starting the cracking task
+                            latch.await();
+                
+                            // Start password cracking task
+                            LoggerUtil.logEvent("Initiated password cracking task on Server " + (serverIndex + 1) + ".");
+                            server.crackPassword(finalTargetHash, finalNumThreads, finalPasswordLength, startIndex, endIndex, serverIndex);
+                
+                        } catch (Exception e) {
+                            System.err.println("Error connecting to server " + (serverIndex + 1) + ": " + e.getMessage());
+                            e.printStackTrace();
+                        }
+                    });
                 }
 
-                // Monitor the servers for password crack result
+                // Wait for all servers to be connected before starting the cracking process
+                latch.await();
+
+                LoggerUtil.logEvent("All servers connected, starting the cracking process.");
+                executorService.shutdown();
+
+                // Monitor the servers for password crack result (same as in your existing code)
+                boolean passwordFound = false;
                 while (!passwordFound) {
                     boolean allServersFinished = true;
                     for (int i = 0; i < numServers; i++) {
@@ -111,6 +144,13 @@ public class Client {
                             passwordFound = true;
                             String result = server.getResult();
                             LoggerUtil.logEvent(result);
+
+                            // Stop cracking on all servers
+                            for (int j = 0; j < numServers; j++) {
+                                Registry stopRegistry = LocateRegistry.getRegistry(serverAddresses[j], 1099);
+                                CrackPass stopServer = (CrackPass) stopRegistry.lookup("CrackPass");
+                                stopServer.stopCracking();
+                            }
                             break;
                         } else if (!server.isFinished()) {
                             allServersFinished = false;
@@ -124,14 +164,6 @@ public class Client {
                     Thread.sleep(1000);
                 }
 
-                // If using multiple servers, stop cracking on them
-                if (numServers > 1) {
-                    for (int i = 0; i < numServers; i++) {
-                        Registry registry = LocateRegistry.getRegistry(serverAddresses[i], 1099);
-                        CrackPass server = (CrackPass) registry.lookup("CrackPass");
-                        server.stopCracking();
-                    }
-                }
             } catch (Exception e) {
                 System.err.println("Error: " + e.getMessage());
                 e.printStackTrace();

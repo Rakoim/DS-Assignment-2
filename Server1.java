@@ -16,7 +16,7 @@ public class Server1 {
             registry.rebind("CrackPass", impCrack);
 
             // Log that the server is running and awaiting client connections
-            LoggerUtil.logEvent("Server 1 is now running on 192.168.123.10 (port 1099), awaiting client connections...");
+            LoggerUtil.logEvent("Server 1 is now running on port 1099, awaiting client connections...");
         } catch (RemoteException e) {
             e.printStackTrace();  // Handle potential RemoteExceptions
         }
