@@ -7,83 +7,110 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ImpCrack extends UnicastRemoteObject implements CrackPass {
+    // Atomic flag to track if password is found
     private static final AtomicBoolean passwordFound = new AtomicBoolean(false);
     private boolean thisServerFoundPassword = false;
+    private boolean thisServerFinished = false; // Marks if the server has finished the task
     private String result = "";
-    private ExecutorService executor;
+    private ExecutorService executor; // Executor for handling threads
+    private final Object syncMontior = new Object(); // Synchronization object for waiting threads
 
+    // Constructor
     protected ImpCrack() throws RemoteException {
         super();
     }
 
     @Override
     public void crackPassword(String targetHash, int numThreads, int passwordLength, int startIndex, int endIndex, int serverIndex) throws RemoteException {
-        // Reset state
+        // Reset state for each task
         passwordFound.set(false);
         thisServerFoundPassword = false;
+        thisServerFinished = false;
         result = "";
-
-        System.out.println("Server " + (serverIndex + 1) + " initiated password search of length " + passwordLength + " for range " + startIndex + " to " + endIndex);
         
-        executor = Executors.newFixedThreadPool(numThreads);
-        long serverStartTime = System.currentTimeMillis();
+        // Log the task initiation
+        LoggerUtil.logEvent("Server " + (serverIndex + 1) + " initiated password search of length " + passwordLength + " for range " + startIndex + " to " + endIndex);
 
+        executor = Executors.newFixedThreadPool(numThreads); // Create thread pool for parallel execution
+        long serverStartTime = System.currentTimeMillis(); // Capture start time for performance measurement
+
+        // Assign work to each thread
         for (int i = 0; i < numThreads; i++) {
             final int start = startIndex + (i * (endIndex - startIndex) / numThreads);
             final int end = (i == numThreads - 1) ? endIndex : start + (endIndex - startIndex) / numThreads;
+
             executor.submit(() -> {
                 for (int index = start; index <= end && !passwordFound.get(); index++) {
                     String password = indexToPassword(index, passwordLength);
-                    if (getMd5(password).equals(targetHash) && !passwordFound.get()) {
-                        passwordFound.set(true);
-                        thisServerFoundPassword = true;
-
-                        long threadId = Thread.currentThread().threadId();
-                        long serverEndTime = System.currentTimeMillis();
-                        double timeTaken = (serverEndTime - serverStartTime) / 1000.0;
-
-                        // Log to the server console
-                        System.out.println("Server " + (serverIndex + 1) + " has successfully cracked the password. Details are as follows:");
-
-                        // Prepare result to send to client
-                        result = "\nPassword Cracked by Server " + (serverIndex + 1) + ":\n" +
-                                "--------------------------------\n" +
-                                "Thread ID: " + threadId + "\n" +
-                                "Password: " + password + "\n" +
-                                "Time taken: " + timeTaken + " seconds\n" +
-                                "--------------------------------";
-
-                        // Display result on the server if only one server
-                        System.out.println(result);
+                    if (getMd5(password).equals(targetHash)) {
+                        synchronized (syncMontior) {
+                            if (!passwordFound.get()) {
+                                passwordFound.set(true); // Mark password found
+                                thisServerFoundPassword = true; // Mark this server found the password
+								
+                                long threadId = Thread.currentThread().threadId();
+                                long serverEndTime = System.currentTimeMillis();
+                                double timeTaken = (serverEndTime - serverStartTime) / 1000.0; // Calculate time taken
+                                
+                                // Prepare result to send to client and log to the server console
+                                result = "Server " + (serverIndex + 1) + " has successfully cracked the password. Details are as follows:\n" +
+                                        "--------------------------------\n" +
+                                        "Thread ID: " + threadId + "\n" +
+                                        "Password: " + password + "\n" +
+                                        "Time taken: " + timeTaken + " seconds\n" +
+                                        "--------------------------------";
+                                LoggerUtil.logEvent(result); // Log the result
+                                syncMontior.notifyAll(); // Notify other threads
+                            }
+                        }
                         break;
-                    } else if (index == end && !passwordFound.get()) {
-                        result = "No password found.";
                     }
+                }
+                synchronized (syncMontior) {
+                    thisServerFinished = true; // Mark the task as finished
+                    syncMontior.notifyAll(); // Notify all waiting threads
                 }
             });
         }
+
         executor.shutdown();
+        synchronized (syncMontior) {
+            while (!executor.isTerminated() && !thisServerFinished) {
+                try {
+                    syncMontior.wait(); // Wait until either the task finishes or password is found
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt(); // Handle thread interruption
+                }
+            }
+        }
+
+        // If this server completes and password was not found, log a message
+        if (!thisServerFoundPassword && !passwordFound.get()) {
+            LoggerUtil.logEvent("Server " + (serverIndex + 1) + " has finished checking all assigned combinations but failed to find the password.");
+        }
     }
 
     @Override
     public void stopCracking() throws RemoteException {
-        if (!thisServerFoundPassword) {
-            System.out.println("Password has been found by another server. Stopping password search operation.");
-        }
-        passwordFound.set(true);
+        passwordFound.set(true); // Mark as found
         if (executor != null && !executor.isShutdown()) {
-            executor.shutdownNow();
+            executor.shutdownNow(); // Shut down the executor immediately
         }
     }
 
     @Override
     public boolean isPasswordFound() throws RemoteException {
-        return passwordFound.get();
+        return passwordFound.get(); // Return if the password is found
     }
 
     @Override
     public String getResult() throws RemoteException {
-        return result;
+        return result; // Return the result of the cracked password
+    }
+
+    @Override
+    public boolean isFinished() throws RemoteException {
+        return thisServerFinished; // Return if the server has finished the task
     }
 
     private String indexToPassword(int index, int length) {
