@@ -1,3 +1,12 @@
+/* Client.java
+This file serves as the entry point for the distributed password-cracking application.
+It connects to multiple servers using RMI, divides the workload among them, and initiates the password-cracking process.
+Users can configure the MD5 hash to crack, the number of threads per server, the password length, and the number of servers.
+
+Usage:
+1. Run the `Server` implementations on separate machines with the specified IPs.
+2. Execute this `Client` program and follow the prompts to provide the required inputs.
+3. The program will manage server connections and display the results. */
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.util.InputMismatchException;

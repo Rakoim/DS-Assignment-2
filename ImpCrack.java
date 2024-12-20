@@ -1,3 +1,15 @@
+/* ImpCrack.java
+Implements the `CrackPass` interface for distributed password cracking using multi-threading. 
+Converts numeric indices to passwords (`indexToPassword`), hashes them with MD5 (`getMd5`), 
+and compares them to the target hash.
+
+Key Features:
+- Multi-threaded brute-force logic in `crackPassword`.
+- Logs progress, results, and supports remote stop.
+- Notifies other threads upon finding the password.
+
+Actual password-cracking happens in threads created within `crackPassword` method. */
+
 import java.math.BigInteger;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;

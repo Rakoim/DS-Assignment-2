@@ -1,3 +1,12 @@
+/* LoggerUtil.java
+A utility class for logging events with timestamps. This class provides 
+a simple method for outputting logs to the console with a consistent format.
+
+Methods:
+- logEvent: Accepts a message string and prints it to the console with a timestamp indicating when the event occurred.
+
+Usage:
+- Call `LoggerUtil.logEvent("Your message here");` to log events throughout the system. */
 import java.text.SimpleDateFormat;
 import java.util.Date;
 

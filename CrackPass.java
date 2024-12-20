@@ -1,3 +1,7 @@
+/* CrackPass.java
+This interface defines the Remote Methods for the password-cracking server.
+It provides methods to start and stop the password-cracking task, check its status, 
+and retrieve the result when the password is found. */
 import java.rmi.Remote;
 import java.rmi.RemoteException;
 
