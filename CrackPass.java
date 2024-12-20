@@ -7,7 +7,7 @@ import java.rmi.RemoteException;
 
 public interface CrackPass extends Remote {
     // Method to crack the password
-    void crackPassword(String targetHash, int numThreads, int passwordLength, int startIndex, int endIndex, int serverIndex) throws RemoteException;
+    void crackPassword(String targetHash, int numThreads, int passwordLength, long startIndex, long endIndex, int serverIndex) throws RemoteException;
 
     // Method to stop cracking
     void stopCracking() throws RemoteException;

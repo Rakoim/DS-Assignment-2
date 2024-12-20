@@ -33,7 +33,7 @@ public class ImpCrack extends UnicastRemoteObject implements CrackPass {
     }
 
     @Override
-    public void crackPassword(String targetHash, int numThreads, int passwordLength, int startIndex, int endIndex, int serverIndex) throws RemoteException {
+    public void crackPassword(String targetHash, int numThreads, int passwordLength, long startIndex, long endIndex, int serverIndex) throws RemoteException {
         // Reset state for each task
         passwordFound.set(false);
         thisServerFoundPassword = false;
@@ -48,11 +48,11 @@ public class ImpCrack extends UnicastRemoteObject implements CrackPass {
 
         // Assign work to each thread
         for (int i = 0; i < numThreads; i++) {
-            final int start = startIndex + (i * (endIndex - startIndex) / numThreads);
-            final int end = (i == numThreads - 1) ? endIndex : start + (endIndex - startIndex) / numThreads;
+            final long start = startIndex + (i * (endIndex - startIndex) / numThreads);
+            final long end = (i == numThreads - 1) ? endIndex : start + (endIndex - startIndex) / numThreads;
 
             executor.submit(() -> {
-                for (int index = start; index <= end && !passwordFound.get(); index++) {
+                for (long index = start; index <= end && !passwordFound.get(); index++) {
                     String password = indexToPassword(index, passwordLength);
                     if (getMd5(password).equals(targetHash)) {
                         synchronized (syncMontior) {
@@ -132,7 +132,7 @@ public class ImpCrack extends UnicastRemoteObject implements CrackPass {
         return thisServerFinished; // Return if the server has finished the task
     }
 
-    private String indexToPassword(int index, int length) {
+    private String indexToPassword(long index, int length) {
         StringBuilder password = new StringBuilder(length);
         int base = 94;
         for (int i = length - 1; i >= 0; i--) {

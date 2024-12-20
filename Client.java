@@ -90,10 +90,10 @@ public class Client {
             }
 
             // Calculate the total number of combinations (94^L)
-            int numCombinations = (int) Math.pow(94, passwordLength);
+            long numCombinations = (long) Math.pow(94, passwordLength);
 
             // Calculate the range each server will handle
-            int rangePerServer = numCombinations / numServers;
+            long rangePerServer = numCombinations / numServers;
 
             // Make variables effectively final for use in lambda
             final String finalTargetHash = targetHash;
@@ -108,8 +108,8 @@ public class Client {
                 // Connect to the servers in parallel
                 for (int i = 0; i < numServers; i++) {
                     final int serverIndex = i;  // Make serverIndex final
-                    final int startIndex = serverIndex * rangePerServer; // Calculate startIndex outside the lambda
-                    final int endIndex = (serverIndex == numServers - 1) ? numCombinations - 1 : (startIndex + rangePerServer - 1); // Calculate endIndex outside the lambda
+                    final long startIndex = serverIndex * rangePerServer; // Calculate startIndex outside the lambda
+                    final long endIndex = (serverIndex == numServers - 1) ? numCombinations - 1 : (startIndex + rangePerServer - 1); // Calculate endIndex outside the lambda
                 
                     executorService.submit(() -> {
                         try {
