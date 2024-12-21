@@ -62,14 +62,15 @@ public class ImpCrack extends UnicastRemoteObject implements CrackPass {
 								
                                 long threadId = Thread.currentThread().threadId();
                                 long serverEndTime = System.currentTimeMillis();
-                                double timeTaken = (serverEndTime - serverStartTime) / 1000.0; // Calculate time taken
+                                double timeTaken = (serverEndTime - serverStartTime) / 60000.0; // Calculate time taken
+                                String formattedTimeTaken = String.format("%.3f", timeTaken); // Format to 3 decimal places
                                 
                                 // Prepare result to send to client and log to the server console
                                 result = "Server " + (serverIndex + 1) + " has successfully cracked the password. Details are as follows:\n" +
                                         "--------------------------------\n" +
                                         "Thread ID: " + threadId + "\n" +
                                         "Password: " + password + "\n" +
-                                        "Time taken: " + timeTaken + " seconds\n" +
+                                        "Time taken: " + formattedTimeTaken + " minutes\n" +
                                         "--------------------------------";
                                 LoggerUtil.logEvent(result); // Log the result
                                 syncMontior.notifyAll(); // Notify other threads
