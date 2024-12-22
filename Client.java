@@ -1,15 +1,8 @@
-/* Client.java
-This file serves as the entry point for the distributed password-cracking application.
-It connects to multiple servers using RMI, divides the workload among them, and initiates the password-cracking process.
-Users can configure the MD5 hash to crack, the number of threads per server, the password length, and the number of servers.
-
-Usage:
-1. Run the `Server` implementations on separate machines with the specified IPs.
-2. Execute this `Client` program and follow the prompts to provide the required inputs.
-3. The program will manage server connections and display the results. */
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+import java.util.ArrayList;
 import java.util.InputMismatchException;
+import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -27,6 +20,7 @@ public class Client {
         int numServers = 0;
         // Array of server IP addresses
         String[] serverAddresses = {"192.168.123.10", "192.168.123.11"}; // Replace with your servers' IPs
+        List<Integer> connectedServerIndices = new ArrayList<>(); // List of connected server indices
 
         try {
             // Get MD5 hash input and validate
@@ -110,43 +104,63 @@ public class Client {
                     final int serverIndex = i;  // Make serverIndex final
                     final long startIndex = serverIndex * rangePerServer; // Calculate startIndex outside the lambda
                     final long endIndex = (serverIndex == numServers - 1) ? numCombinations - 1 : (startIndex + rangePerServer - 1); // Calculate endIndex outside the lambda
-                
+
                     executorService.submit(() -> {
-                        try {
-                            // Connect to server using RMI
-                            Registry registry = LocateRegistry.getRegistry(serverAddresses[serverIndex], 1099);
-                            CrackPass server = (CrackPass) registry.lookup("CrackPass");
-                
-                            LoggerUtil.logEvent("Server " + (serverIndex + 1) + " connected.");
-                            latch.countDown(); // Signal that this server is connected
-                
-                            // Wait until all servers are connected before starting the cracking task
-                            latch.await();
-                
-                            // Start password cracking task
-                            LoggerUtil.logEvent("Initiated password cracking task on Server " + (serverIndex + 1) + ".");
-                            server.crackPassword(finalTargetHash, finalNumThreads, finalPasswordLength, startIndex, endIndex, serverIndex);
-                
-                        } catch (Exception e) {
-                            System.err.println("Error connecting to server " + (serverIndex + 1) + ": " + e.getMessage());
-                            e.printStackTrace();
+                        boolean connected = false;
+                        int currentServerIndex = serverIndex; // Start with the assigned server index
+                        while (!connected) {
+                            try {
+                                // Attempt to connect to the current server using RMI
+                                Registry registry = LocateRegistry.getRegistry(serverAddresses[currentServerIndex], 1099);
+                                CrackPass server = (CrackPass) registry.lookup("CrackPass");
+
+                                LoggerUtil.logEvent("Server " + (currentServerIndex + 1) + " connected.");
+                                connectedServerIndices.add(currentServerIndex); // Add to the list of connected server indices
+                                latch.countDown(); // Signal that this server is connected
+
+                                // Wait until all servers are connected before starting the cracking task
+                                latch.await();
+
+                                // Start password cracking task
+                                LoggerUtil.logEvent("Initiated password cracking task on Server " + (currentServerIndex + 1) + ".");
+                                server.crackPassword(finalTargetHash, finalNumThreads, finalPasswordLength, startIndex, endIndex, currentServerIndex);
+
+                                connected = true;
+                            } catch (Exception e) {
+                                System.err.println("Failed to connect to Server " + (currentServerIndex + 1) + ". Error: " + e.getMessage());
+                                System.out.println("Retrying with the next available server...");
+                                currentServerIndex = (currentServerIndex + 1) % serverAddresses.length; // Switch to the next server in the list
+
+                                // If we've tried all servers and failed, break the loop
+                                if (currentServerIndex == serverIndex) {
+                                    LoggerUtil.logEvent("All servers failed to connect for task starting at index " + startIndex + ".");
+                                    System.out.println("Tips: Ensure the server is running, check the network connection, and verify the server's IP address and port.");
+                                    System.out.print("Retry connecting to Server " + (currentServerIndex + 1) + "? (y/n): ");
+
+                                    String retry = scanner.next().trim().toLowerCase();
+                                    if (!retry.equals("y")) {
+                                        LoggerUtil.logEvent("User chose not to retry connecting to Server " + (currentServerIndex + 1) + ".");
+                                        latch.countDown(); // Prevent deadlock in case of user giving up
+                                        break;
+                                    }
+                                }
+                            }
                         }
                     });
                 }
 
                 // Wait for all servers to be connected before starting the cracking process
                 latch.await();
-
                 LoggerUtil.logEvent("All servers connected, starting the cracking process.");
                 executorService.shutdown();
 
-                // Monitor the servers for password crack result (same as in your existing code)
+                // Monitor the connected servers for password crack result
                 boolean passwordFound = false;
                 while (!passwordFound) {
                     boolean allServersFinished = true;
-                    for (int i = 0; i < numServers; i++) {
+                    for (int serverIndex : connectedServerIndices) {
                         // Check if password is found on the server
-                        Registry registry = LocateRegistry.getRegistry(serverAddresses[i], 1099);
+                        Registry registry = LocateRegistry.getRegistry(serverAddresses[serverIndex], 1099);
                         CrackPass server = (CrackPass) registry.lookup("CrackPass");
 
                         if (server.isPasswordFound()) {
@@ -154,9 +168,9 @@ public class Client {
                             String result = server.getResult();
                             LoggerUtil.logEvent(result);
 
-                            // Stop cracking on all servers
-                            for (int j = 0; j < numServers; j++) {
-                                Registry stopRegistry = LocateRegistry.getRegistry(serverAddresses[j], 1099);
+                            // Stop cracking on all connected servers
+                            for (int stopServerIndex : connectedServerIndices) {
+                                Registry stopRegistry = LocateRegistry.getRegistry(serverAddresses[stopServerIndex], 1099);
                                 CrackPass stopServer = (CrackPass) stopRegistry.lookup("CrackPass");
                                 stopServer.stopCracking();
                             }
@@ -165,6 +179,7 @@ public class Client {
                             allServersFinished = false;
                         }
                     }
+
                     // If all servers are finished and no password found, log message
                     if (allServersFinished && !passwordFound) {
                         LoggerUtil.logEvent("Password not found after checking all combinations. Please ensure the password length is correct.");
