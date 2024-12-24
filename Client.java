@@ -28,7 +28,7 @@ public class Client {
         int passwordLength = 0;
         int numServers = 0;
         // Array of server IP addresses
-        String[] serverAddresses = {"192.168.123.10", "192.168.123.11"}; // Replace with your servers' IPs
+        String[] serverAddresses = {"192.168.1.10", "192.168.1.11"}; // Replace with your servers' IPs
         List<Integer> connectedServerIndices = new ArrayList<>(); // List of connected server indices
 
         try {
@@ -46,16 +46,16 @@ public class Client {
 
             // Get number of threads per server and validate
             while (true) {
-                System.out.print("Enter number of threads per server: ");
+                System.out.print("Enter number of threads per server (1-10): ");
                 try {
                     numThreads = scanner.nextInt();
-                    if (numThreads > 0) {
+                    if (numThreads > 0 && numThreads <= 10) {
                         break; // Exit the loop if valid
                     } else {
-                        System.out.println("Invalid number of threads. Please enter a positive integer.");
+                        System.out.println("Invalid number of threads. Please enter a positive integer between 1 and 10.");
                     }
                 } catch (InputMismatchException e) {
-                    System.out.println("Invalid number of threads. Please enter a positive integer.");
+                    System.out.println("Invalid number of threads. Please enter a positive integer between 1 and 10.");
                     scanner.next(); // Clear the invalid input
                 }
             }
