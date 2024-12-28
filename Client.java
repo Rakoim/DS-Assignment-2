@@ -28,7 +28,7 @@ public class Client {
         int passwordLength = 0;
         int numServers = 0;
         // Array of server IP addresses
-        String[] serverAddresses = {"192.168.1.10", "192.168.1.11"}; // Replace with your servers' IPs
+        String[] serverAddresses = {"192.168.123.10", "192.168.123.11"}; // Replace with your servers' IPs
         List<Integer> connectedServerIndices = new ArrayList<>(); // List of connected server indices
 
         try {
